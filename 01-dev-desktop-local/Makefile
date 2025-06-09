@@ -1,5 +1,11 @@
-install:
-	pip install -r requirements.txt
+venv:
+	python3 -m venv .venv
+
+install: venv
+	. .venv/bin/activate && pip install -r requirements.txt
 
 test:
-	pytest test_app.py
+	. .venv/bin/activate && pytest
+
+run:
+	. .venv/bin/activate && python app.py
