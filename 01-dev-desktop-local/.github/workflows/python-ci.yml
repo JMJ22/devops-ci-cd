@@ -1,4 +1,4 @@
-name: Python CI with Docker
+name: Python CI with Docker and Wheel
 
 on:
   push:
@@ -12,6 +12,23 @@ jobs:
     steps:
       - name: Checkout código
         uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Instala ferramentas de build
+        run: pip install --upgrade pip setuptools wheel
+
+      - name: Gera pacote .whl
+        run: python setup.py bdist_wheel
+
+      - name: Salva artefato .whl
+        uses: actions/upload-artifact@v4
+        with:
+          name: pacote-wheel
+          path: dist/*.whl
 
       - name: Build imagem Docker
         run: docker build -t meuapp:ci .
