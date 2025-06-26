@@ -1,0 +1,28 @@
+name: CD - Deploy para VM
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout código
+      uses: actions/checkout@v4
+
+    - name: Configurar SSH
+      uses: webfactory/ssh-agent@v0.9.0
+      with:
+        ssh-private-key: ${{ secrets.HOMOLOG_VM_KEY }}
+
+    - name: Copiar arquivos para a VM
+      run: |
+        rsync -avz --exclude='.git*' -e "ssh -o StrictHostKeyChecking=no" ./ ${{ secrets.HOMOLOG_VM_USER }}@${{ secrets.HOMOLOG_VM_HOST }}:${{ secrets.HOMOLOG_VM_PATH }}
+
+    - name: Rodar comando pós-deploy (opcional)
+      run: |
+        ssh -o StrictHostKeyChecking=no ${{ secrets.HOMOLOG_VM_USER }}@${{ secrets.HOMOLOG_VM_HOST }} "cd ${{ secrets.HOMOLOG_VM_PATH }} && sudo systemctl restart seu-servico"
+      if: ${{ always() && secrets.HOMOLOG_VM_PATH != '' }}
