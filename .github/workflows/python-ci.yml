@@ -21,5 +21,7 @@ jobs:
         run: |
           pip install flake8
           flake8 01-dev-desktop-local/
-      - name: Run tests
-        run: pytest 01-dev-desktop-local/test_app.py
+      - name: Run pytest for all tests
+        run: |
+          pip install pytest
+          pytest 01-dev-desktop-local/

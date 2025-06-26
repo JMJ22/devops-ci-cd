@@ -1,0 +1,37 @@
+Vagrant.configure("2") do |config|
+  config.vm.define "control-plane-k8s" do |node|
+    node.vm.box = "ubuntu/jammy64"
+    node.vm.hostname = "control-plane-k8s"
+
+    # Redes
+    node.vm.network "private_network", ip: "192.168.56.81"
+    node.vm.network "public_network", ip: "172.10.10.71", bridge: "wlo1"
+
+    node.vm.provider "virtualbox" do |vb|
+      vb.memory = 4096
+      vb.cpus = 2
+    end
+
+    # Disco adicional para /var/lib/docker
+    node.vm.disk :disk, size: "20GB", name: "docker-disk"
+
+    # Disco adicional para /var/lib/kubelet
+    node.vm.disk :disk, size: "20GB", name: "kubelet-disk"
+
+    # Disco adicional para /var/lib/rancher
+    node.vm.disk :disk, size: "20GB", name: "rancher-disk"
+
+    # Configuração de memória swap
+    node.vm.provision "shell", inline: <<-SHELL
+      fallocate -l 2G /swapfile
+      chmod 600 /swapfile
+      mkswap /swapfile
+      swapon /swapfile
+      echo '/swapfile none swap sw 0 0' | tee -a /etc/fstab
+    SHELL
+
+    # Script de provisionamento
+    node.vm.provision "shell", path: "provision-control-plane-k8s.sh"
+  end
+end
+
