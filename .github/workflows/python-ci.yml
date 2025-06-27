@@ -1,27 +1,37 @@
-name: Python CI
+name: Python CI with Docker and Wheel
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: [ main ]
   pull_request:
-    branches: [ "main", "master" ]
+    branches: [ main ]
 
 jobs:
-  test:
+  build-and-run:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
-      - name: Install dependencies
-        run: pip install -r 01-dev-desktop-local/requirements.txt
-      - name: Run flake8 linter
-        run: |
-          pip install flake8
-          flake8 01-dev-desktop-local/
-      - name: Run pytest for all tests
-        run: |
-          pip install pytest
-          pytest 01-dev-desktop-local/
+          python-version: '3.11'
+
+      - name: Instala ferramentas de build
+        run: pip install --upgrade pip setuptools wheel
+
+      - name: Gera pacote .whl
+        run: python setup.py bdist_wheel
+
+      - name: Salva artefato .whl
+        uses: actions/upload-artifact@v4
+        with:
+          name: pacote-wheel
+          path: dist/*.whl
+
+      - name: Build imagem Docker
+        run: docker build -t meuapp:ci .
+
+      - name: Rodar app.py no container
+        run: docker run --rm meuapp:ci
