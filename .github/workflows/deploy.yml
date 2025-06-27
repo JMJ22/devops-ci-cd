@@ -35,6 +35,13 @@ jobs:
           echo "SSH_DIR=$SSH_DIR" >> $GITHUB_ENV
           echo "SSH_KEY_FILE=$SSH_KEY_FILE" >> $GITHUB_ENV
 
+      - name: Debug SSH key file
+        run: |
+          ls -l $SSH_DIR
+          file $SSH_KEY_FILE || echo "Arquivo não existe"
+          head -3 $SSH_KEY_FILE || echo "Arquivo não existe"
+          tail -3 $SSH_KEY_FILE || true
+
       - name: Test SSH connection
         run: |
           set -euo pipefail
