@@ -8,17 +8,11 @@ on:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Força DNS do Google no runner
-        run: |
-          sudo rm -f /etc/resolv.conf
-          echo "nameserver 8.8.8.8" | sudo tee /etc/resolv.conf
-          cat /etc/resolv.conf
 
       - name: Debug - usuário e home
         run: |
@@ -27,54 +21,11 @@ jobs:
           ls -la ~
           ls -la ~/.ssh || echo "~/.ssh não existe"
 
-      - name: Set up SSH key (seguro)
+      - name: Build and run Docker container
         run: |
           set -euxo pipefail
-          export SSH_DIR="/tmp/ssh_${GITHUB_RUN_ID}"
-          export SSH_KEY_FILE="$SSH_DIR/id_ed25519"
-          mkdir -p "$SSH_DIR"
-          chmod 700 "$SSH_DIR"
-          echo "ANTES DE ESCREVER SSH_KEY_FILE"
-          echo "${{ secrets.HOMOLOG_VM_KEY }}" | tr -d '\r' > "$SSH_KEY_FILE"
-          echo "DEPOIS DE ESCREVER SSH_KEY_FILE"
-          ls -l "$SSH_KEY_FILE" || echo "Arquivo nao criado"
-          head -5 "$SSH_KEY_FILE" || echo "Arquivo vazio"
-          chmod 600 "$SSH_KEY_FILE"
-          ssh-keyscan -H "${{ secrets.HOMOLOG_VM_HOST }}" > "$SSH_DIR/known_hosts"
-          chmod 644 "$SSH_DIR/known_hosts"
-          echo "SSH_DIR=$SSH_DIR" >> $GITHUB_ENV
-          echo "SSH_KEY_FILE=$SSH_KEY_FILE" >> $GITHUB_ENV
-
-      - name: Debug SSH key file
-        run: |
-          ls -l $SSH_DIR
-          file $SSH_KEY_FILE || echo "Arquivo não existe"
-          head -3 $SSH_KEY_FILE || echo "Arquivo não existe"
-          tail -3 $SSH_KEY_FILE || true
-
-      - name: Test SSH connection
-        run: |
-          set -euo pipefail
-          ssh -i "$SSH_KEY_FILE" -o UserKnownHostsFile="$SSH_DIR/known_hosts" -o StrictHostKeyChecking=yes "${{ secrets.HOMOLOG_VM_USER }}"@"${{ secrets.HOMOLOG_VM_HOST }}" "echo 'SSH connection successful.'"
-
-      - name: Copy app folder to VM
-        run: |
-          set -euo pipefail
-          rsync -avz --delete -e "ssh -i $SSH_KEY_FILE -o UserKnownHostsFile=$SSH_DIR/known_hosts -o StrictHostKeyChecking=yes" ./01-dev-desktop-local/ "${{ secrets.HOMOLOG_VM_USER }}"@"${{ secrets.HOMOLOG_VM_HOST }}":/home/jmj22/app/
-
-      - name: Build and run Docker container on VM
-        run: |
-          set -euo pipefail
-          ssh -i "$SSH_KEY_FILE" -o UserKnownHostsFile="$SSH_DIR/known_hosts" -o StrictHostKeyChecking=yes "${{ secrets.HOMOLOG_VM_USER }}"@"${{ secrets.HOMOLOG_VM_HOST }}" "
-            set -e
-            cd /home/jmj22/app &&
-            docker build -t python-app:latest . &&
-            docker rm -f python-app || true &&
-            docker run --name python-app --rm python-app:latest
-          "
-
-      - name: Cleanup SSH key
-        if: always()
-        run: |
-          rm -rf "$SSH_DIR"
+          cd 01-dev-desktop-local
+          docker build -t python-app:latest .
+          docker rm -f python-app || true
+          docker run --name python-app --rm python-app:latest
 
