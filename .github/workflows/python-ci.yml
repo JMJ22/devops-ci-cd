@@ -35,3 +35,5 @@ jobs:
 
       - name: Rodar app.py no container
         run: docker run --rm meuapp:ci
+
+#apenas para o push
