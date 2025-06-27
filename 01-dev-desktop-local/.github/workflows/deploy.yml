@@ -13,25 +13,27 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up SSH key
+      - name: Set up SSH key (seguro)
         run: |
-          mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
-          echo "${{ secrets.HOMOLOG_VM_KEY }}" | tr -d '\r' > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -H ${{ secrets.HOMOLOG_VM_HOST }} >> ~/.ssh/known_hosts
+          export SSH_DIR="/tmp/ssh_$GITHUB_RUN_ID"
+          mkdir -p "$SSH_DIR"
+          echo "${{ secrets.HOMOLOG_VM_KEY }}" | tr -d '\r' > "$SSH_DIR/id_ed25519"
+          chmod 700 "$SSH_DIR"
+          chmod 600 "$SSH_DIR/id_ed25519"
+          ssh-keyscan -H ${{ secrets.HOMOLOG_VM_HOST }} > "$SSH_DIR/known_hosts"
+          echo "SSH_DIR=$SSH_DIR" >> $GITHUB_ENV
 
       - name: Test SSH connection
         run: |
-          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=yes ${{ secrets.HOMOLOG_VM_USER }}@${{ secrets.HOMOLOG_VM_HOST }} "echo 'SSH connection successful.'"
+          ssh -i "$SSH_DIR/id_ed25519" -o UserKnownHostsFile="$SSH_DIR/known_hosts" -o StrictHostKeyChecking=yes ${{ secrets.HOMOLOG_VM_USER }}@${{ secrets.HOMOLOG_VM_HOST }} "echo 'SSH connection successful.'"
 
       - name: Copy app folder to VM
         run: |
-          rsync -avz --delete -e "ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=yes" ./01-dev-desktop-local/ ${{ secrets.HOMOLOG_VM_USER }}@${{ secrets.HOMOLOG_VM_HOST }}:/home/jmj22/app/
+          rsync -avz --delete -e "ssh -i $SSH_DIR/id_ed25519 -o UserKnownHostsFile=$SSH_DIR/known_hosts -o StrictHostKeyChecking=yes" ./01-dev-desktop-local/ ${{ secrets.HOMOLOG_VM_USER }}@${{ secrets.HOMOLOG_VM_HOST }}:/home/jmj22/app/
 
       - name: Build and run Docker container on VM
         run: |
-          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=yes ${{ secrets.HOMOLOG_VM_USER }}@${{ secrets.HOMOLOG_VM_HOST }} "
+          ssh -i "$SSH_DIR/id_ed25519" -o UserKnownHostsFile="$SSH_DIR/known_hosts" -o StrictHostKeyChecking=yes ${{ secrets.HOMOLOG_VM_USER }}@${{ secrets.HOMOLOG_VM_HOST }} "
             set -e
             cd /home/jmj22/app &&
             docker build -t python-app:latest . &&
