@@ -16,9 +16,14 @@ jobs:
       - name: Set up SSH key
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.HOMOLOG_VM_KEY }}" > ~/.ssh/id_ed25519
+          chmod 700 ~/.ssh
+          echo "${{ secrets.HOMOLOG_VM_KEY }}" | tr -d '\r' > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H ${{ secrets.HOMOLOG_VM_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Test SSH connection
+        run: |
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=yes ${{ secrets.HOMOLOG_VM_USER }}@${{ secrets.HOMOLOG_VM_HOST }} "echo 'SSH connection successful.'"
 
       - name: Copy app folder to VM
         run: |
@@ -27,8 +32,9 @@ jobs:
       - name: Build and run Docker container on VM
         run: |
           ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=yes ${{ secrets.HOMOLOG_VM_USER }}@${{ secrets.HOMOLOG_VM_HOST }} "
+            set -e
             cd /home/jmj22/app &&
             docker build -t python-app:latest . &&
             docker rm -f python-app || true &&
-            docker run --rm python-app:latest
+            docker run --name python-app --rm python-app:latest
           "

@@ -1,34 +1,43 @@
 name: CD Deploy para VM Docker
-
 on:
   push:
     branches:
       - main
-
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout código
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Configurar chave SSH
+      # ✅ **Ignora COMPLETAMENTE o diretório padrão do SSH**
+      - name: Configurar SSH em /tmp (à prova de falhas)
         run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.HOMOLOG_VM_KEY }}" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -H 192.168.56.81 >> ~/.ssh/known_hosts
+          SSH_TEMP="/tmp/ssh_$GITHUB_RUN_ID"
+          mkdir -p "$SSH_TEMP"
+          echo "${{ secrets.HOMOLOG_VM_KEY }}" > "$SSH_TEMP/id_ed25519"
+          chmod 700 "$SSH_TEMP"
+          chmod 600 "$SSH_TEMP/id_ed25519"
+          ssh-keyscan -H "${{ secrets.HOMOLOG_VM_HOST }}" > "$SSH_TEMP/known_hosts"
+          echo "SSH_DIR=$SSH_TEMP" >> $GITHUB_ENV
 
-      - name: Copiar arquivos para a VM (/docker)
+      # 🔍 **Teste de conexão com debug explícito**
+      - name: Testar SSH (com logs detalhados)
         run: |
-          rsync -avz --delete -e "ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=yes" ./ ${{ secrets.HOMOLOG_VM_USER }}@${{ secrets.HOMOLOG_VM_HOST }}:/docker/
+          ssh -vvv -i "$SSH_DIR/id_ed25519" \
+              -o UserKnownHostsFile="$SSH_DIR/known_hosts" \
+              -o StrictHostKeyChecking=no \
+              "${{ secrets.HOMOLOG_VM_USER }}@${{ secrets.HOMOLOG_VM_HOST }}" \
+              "echo '✅ Conexão SSH bem-sucedida!'" || (echo "::error::Falha na conexão SSH"; exit 1)
 
-      - name: Build e executar Docker container na VM
+      # 🚀 **Deploy sem depender de ~/.ssh**
+      - name: Deploy na VM
         run: |
-          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=yes ${{ secrets.HOMOLOG_VM_USER }}@${{ secrets.HOMOLOG_VM_HOST }} "
-            cd /docker && \
-            docker build -t python-app:latest . && \
-            docker rm -f python-app || true && \
-            docker run -d --name python-app --restart unless-stopped -p 8000:8000 python-app:latest
-          "
+          rsync -avz --delete \
+            -e "ssh -i $SSH_DIR/id_ed25519 -o UserKnownHostsFile=$SSH_DIR/known_hosts" \
+            ./ \
+            "${{ secrets.HOMOLOG_VM_USER }}@${{ secrets.HOMOLOG_VM_HOST }}:/docker/"
+          
+          ssh -i "$SSH_DIR/id_ed25519" \
+              "${{ secrets.HOMOLOG_VM_USER }}@${{ secrets.HOMOLOG_VM_HOST }}" \
+              "cd /docker && docker-compose up -d --build"
