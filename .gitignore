@@ -10,6 +10,12 @@ venv/
 ENV/
 ENV.bak/
 *.sqlite3
+actions-runner/
+*.log
+dist/
+build/
+.DS_Store
+
 
 # VSCode
 .vscode/
