@@ -1,0 +1,36 @@
+name: Deploy Python App
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Debug - usuário e home
+        run: |
+          whoami
+          echo "Home: $HOME"
+          ls -la ~
+          ls -la ~/.ssh || echo "~/.ssh não existe"
+
+      - name: Build Docker image
+        run: |
+          set -euxo pipefail
+          cd 01-dev-desktop-local
+          docker build -t python-app:latest .
+
+      - name: Remove old container (if exists)
+        run: |
+          docker rm -f python-app || true
+
+      - name: Run Docker container (background)
+        run: |
+          docker run -d --name python-app -p 8000:8000 python-app:latest
