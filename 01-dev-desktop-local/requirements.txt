@@ -3,3 +3,8 @@ websocket-client
 rich
 plotext
 keyboard
+streamlit
+streamlit-autorefresh
+pandas
+flask
+flask-cors

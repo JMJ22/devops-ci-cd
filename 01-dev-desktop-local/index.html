@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <title>Cotações em Tempo Real (Binance)</title>
+  <style>
+    body { background: #181926; color: #fff; font-family: Arial, sans-serif; }
+    table { border-collapse: collapse; margin: 40px auto; font-size: 1.3em; }
+    th, td { border: 1px solid #666; padding: 10px 24px; text-align: right; }
+    th { background: #22223b; color: #7dc4e4; }
+    td.pair { color: #7dc4e4; font-weight: bold; text-align: left; }
+    td.percent.negative { color: #ff4d6d; }
+    td.percent.positive { color: #3ec300; }
+    td.percent.neutral { color: #fff; }
+  </style>
+</head>
+<body>
+  <h1 style="text-align:center;">Cotações em Tempo Real (Binance)</h1>
+  <table id="cotacoes">
+    <thead>
+      <tr>
+        <th>Par</th>
+        <th>Abertura do Dia</th>
+        <th>Preço</th>
+        <th>Variação (%)</th>
+        <th>Atualizado em</th>
+      </tr>
+    </thead>
+    <tbody>
+      <!-- Linhas serão inseridas por JS -->
+    </tbody>
+  </table>
+  <script>
+    const API = "http://localhost:5000/cotacoes";
+
+    function colorClass(percent) {
+      if (percent && percent.startsWith('+')) return 'positive';
+      if (percent && percent.startsWith('-')) return 'negative';
+      return 'neutral';
+    }
+
+    async function atualizarCotacoes() {
+      try {
+        const resp = await fetch(API);
+        const data = await resp.json();
+        const tbody = document.querySelector("#cotacoes tbody");
+        tbody.innerHTML = "";
+        for (const pair of data.pairs) {
+          const percent = data.percents[pair];
+          tbody.innerHTML += `
+            <tr>
+              <td class="pair">${pair}</td>
+              <td>${data.opens[pair]}</td>
+              <td>${data.prices[pair]}</td>
+              <td class="percent ${colorClass(percent)}">${percent}</td>
+              <td>${data.times[pair]}</td>
+            </tr>
+          `;
+        }
+      } catch(e) {
+        console.log("Erro ao buscar dados:", e);
+      }
+    }
+
+    setInterval(atualizarCotacoes, 1000);
+    atualizarCotacoes();
+  </script>
+</body>
+</html>

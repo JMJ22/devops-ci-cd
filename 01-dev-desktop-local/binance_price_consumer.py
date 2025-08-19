@@ -6,7 +6,11 @@ import sys
 from rich.live import Live
 from rich.table import Table
 from datetime import datetime
-import keyboard  # Necessário: pip install keyboard
+
+# INTEGRAÇÃO FLASK
+from flask import Flask, jsonify
+from flask_cors import CORS  # <-- ADICIONE ESTA LINHA
+import os
 
 PAIRS = ["BTCUSDT", "ETHUSDT", "BNBUSDT"]
 prices = {pair: "-" for pair in PAIRS}
@@ -18,7 +22,7 @@ times = {pair: "-" for pair in PAIRS}
 running = True
 
 def make_table():
-    table = Table(title="Cotações em Tempo Real (Binance) - Pressione 'q' para sair")
+    table = Table(title="Cotações em Tempo Real (Binance) - Use Ctrl+C para sair")
     table.add_column("Par", style="bold cyan")
     table.add_column("Abertura do Dia", style="yellow", justify="right")
     table.add_column("Preço", style="bold green", justify="right")
@@ -86,24 +90,36 @@ def run_ws():
                                 on_close=on_close)
     ws.run_forever()
 
-def keyboard_listener():
-    global running
-    while running:
-        if keyboard.is_pressed('q'):
-            running = False
-            print("\nEncerrando (pressionou 'q')...")
-            break
-        time.sleep(0.1)
+# FLASK SERVER PARA INTEGRAÇÃO
+app = Flask(__name__)
+CORS(app)  # <-- ADICIONE ESTA LINHA
+
+@app.route("/cotacoes")
+def cotacoes():
+    return jsonify({
+        "pairs": PAIRS,
+        "prices": prices,
+        "opens": opens,
+        "percents": percents,
+        "percent_colors": percent_colors,
+        "times": times,
+    })
+
+def flask_server():
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)
 
 if __name__ == "__main__":
     t = threading.Thread(target=run_ws, daemon=True)
     t.start()
-    key_thread = threading.Thread(target=keyboard_listener, daemon=True)
-    key_thread.start()
-    with Live(make_table(), refresh_per_second=4) as live:
-        while running:
-            live.update(make_table())
-            time.sleep(1)
-    running = False
-    print("Finalizado.")
-    sys.exit(0)
+    # Inicia o Flask em uma thread separada
+    flask_thread = threading.Thread(target=flask_server, daemon=True)
+    flask_thread.start()
+    try:
+        with Live(make_table(), refresh_per_second=4) as live:
+            while True:
+                live.update(make_table())
+                time.sleep(1)
+    except KeyboardInterrupt:
+        print("\nFinalizado.")
+        sys.exit(0)
