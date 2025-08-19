@@ -2,3 +2,4 @@ pytest
 websocket-client
 rich
 plotext
+keyboard
