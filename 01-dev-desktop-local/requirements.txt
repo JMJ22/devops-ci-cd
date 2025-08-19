@@ -1,1 +1,4 @@
 pytest
+websocket-client
+rich
+plotext
