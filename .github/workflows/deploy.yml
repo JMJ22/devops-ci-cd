@@ -19,8 +19,22 @@ jobs:
           username: ${{ secrets.HOMOLOG_VM_USER }}
           key: ${{ secrets.HOMOLOG_VM_KEY }}
           script: |
-            cd /caminho/do/projeto # <-- ajuste para o caminho correto do seu projeto na VM
-            git pull origin main
+            # Garante que o diretório existe, se não existir, cria
+            if [ ! -d "/docker/devops-ci-cd" ]; then
+              mkdir -p /docker/devops-ci-cd
+            fi
+
+            cd /docker/devops-ci-cd
+            # Inicializa o repositório git se ele não existir (apenas na primeira vez)
+            if [ ! -d ".git" ]; then
+              git init
+              git remote add origin https://github.com/JMJ22/devops-ci-cd.git
+              git fetch origin
+              git checkout -t origin/main
+            else
+              git pull origin main
+            fi
+
             docker stop backend || true
             docker rm backend || true
             # docker stop frontend || true
