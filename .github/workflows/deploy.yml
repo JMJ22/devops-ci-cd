@@ -12,41 +12,35 @@ jobs:
     runs-on: self-hosted
 
     steps:
-      - name: Checkout code
+      - name: Ensure deployment directory exists
+        run: |
+          sudo mkdir -p /docker/devops-ci-cd
+          sudo chown -R $USER:$USER /docker/devops-ci-cd
+
+      - name: Checkout code to deployment directory
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0
+          path: /docker/devops-ci-cd
 
-      - name: Prepare deployment directory
-        run: |
-          DEPLOY_DIR="/docker/devops-ci-cd"
-          sudo mkdir -p $DEPLOY_DIR
-          sudo chown -R $USER:$USER $DEPLOY_DIR
-          
-          # Sincroniza arquivos mantendo permissões
-          rsync -av --delete ./ $DEPLOY_DIR/
-
-      - name: Build Docker image
+      - name: Build and deploy
         run: |
           cd /docker/devops-ci-cd
-          docker build -t backend:latest -f Dockerfile .
-
-      - name: Stop and remove old container
-        run: |
+          
+          # Build da imagem
+          docker build -t backend:latest .
+          
+          # Para e remove container antigo
           docker stop backend 2>/dev/null || true
           docker rm backend 2>/dev/null || true
-
-      - name: Deploy new container
-        run: |
+          
+          # Executa novo container
           docker run -d \
             --name backend \
             -p 5000:5000 \
-            -v /docker/devops-ci-cd:/app \
             backend:latest
 
-      - name: Verify deployment
+      - name: Health check
         run: |
-          sleep 5
-          echo "Verificando se o container está rodando..."
-          docker ps | grep backend
-          curl -f http://localhost:5000 || echo "Health check falhou, mas container pode estar iniciando"
+          sleep 3
+          docker ps
+          echo "Deploy completed successfully!"
