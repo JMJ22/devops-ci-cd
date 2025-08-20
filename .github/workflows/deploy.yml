@@ -9,59 +9,44 @@ on:
 jobs:
   deploy:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
 
     steps:
-      - name: SSH into VM and deploy
-        uses: appleboy/ssh-action@v1.0.3
+      - name: Checkout code
+        uses: actions/checkout@v3
         with:
-          host: ${{ secrets.HOMOLOG_VM_HOST }}
-          username: ${{ secrets.HOMOLOG_VM_USER }}
-          key: ${{ secrets.HOMOLOG_VM_KEY }}
-          script: |
-            set -e
-            set -o pipefail
+          fetch-depth: 0
 
-            retry() {
-              local n=1
-              local max=5
-              local delay=10
-              while true; do
-                "$@" && break || {
-                  if [[ $n -lt $max ]]; then
-                    ((n++))
-                    echo "Comando falhou. Tentando novamente em $delay segundos... (tentativa $n de $max)" >&2
-                    sleep $delay;
-                  else
-                    echo "O comando falhou após $n tentativas." >&2
-                    return 1
-                  fi
-                }
-              done
-            }
+      - name: Prepare deployment directory
+        run: |
+          DEPLOY_DIR="/docker/devops-ci-cd"
+          sudo mkdir -p $DEPLOY_DIR
+          sudo chown -R $USER:$USER $DEPLOY_DIR
+          
+          # Sincroniza arquivos mantendo permissões
+          rsync -av --delete ./ $DEPLOY_DIR/
 
-            if [ ! -d "/docker/devops-ci-cd" ]; then
-              mkdir -p /docker/devops-ci-cd
-            fi
+      - name: Build Docker image
+        run: |
+          cd /docker/devops-ci-cd
+          docker build -t backend:latest -f Dockerfile .
 
-            cd /docker/devops-ci-cd
+      - name: Stop and remove old container
+        run: |
+          docker stop backend 2>/dev/null || true
+          docker rm backend 2>/dev/null || true
 
-            # Inicializa o repositório git se não existir, senão atualiza
-            if [ ! -d ".git" ]; then
-              retry git init
-              retry git remote add origin https://github.com/JMJ22/devops-ci-cd.git
-              retry git fetch origin
-              retry git checkout -t origin/main
-            else
-              retry git fetch origin
-              retry git reset --hard origin/main
-            fi
+      - name: Deploy new container
+        run: |
+          docker run -d \
+            --name backend \
+            -p 5000:5000 \
+            -v /docker/devops-ci-cd:/app \
+            backend:latest
 
-            retry docker build -t backend:latest -f Dockerfile .
-
-            docker stop backend || true
-            docker rm backend || true
-
-            docker run -d --name backend -p 5000:5000 backend:latest
-
-            echo "Deploy finalizado com sucesso!"
+      - name: Verify deployment
+        run: |
+          sleep 5
+          echo "Verificando se o container está rodando..."
+          docker ps | grep backend
+          curl -f http://localhost:5000 || echo "Health check falhou, mas container pode estar iniciando"
