@@ -1,0 +1,29 @@
+name: Deploy to VM
+
+on:
+  workflow_run:
+    workflows: ["Build and Push Docker Images"]
+    types:
+      - completed
+
+jobs:
+  deploy:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy via SSH to VM
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USER }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          script: |
+            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/binance-backend:latest
+            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/binance-frontend:latest
+            docker stop backend || true
+            docker rm backend || true
+            docker stop frontend || true
+            docker rm frontend || true
+            docker run -d --name backend -p 5000:5000 ${{ secrets.DOCKERHUB_USERNAME }}/binance-backend:latest
+            docker run -d --name frontend -p 8080:8080 ${{ secrets.DOCKERHUB_USERNAME }}/binance-frontend:latest
