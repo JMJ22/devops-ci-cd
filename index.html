@@ -31,7 +31,7 @@
     </tbody>
   </table>
   <script>
-    const API = "http://localhost:5000/cotacoes";
+    const API = location.protocol + "//" + location.hostname + ":5000/cotacoes";
 
     function colorClass(percent) {
       if (percent && percent.startsWith('+')) return 'positive';
