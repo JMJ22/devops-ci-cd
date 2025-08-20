@@ -20,11 +20,12 @@ jobs:
 
       - name: Build backend image
         run: |
-          docker build -t backend:latest -f backend/Dockerfile backend
+          docker build -t backend:latest -f Dockerfile .
 
-      - name: Build frontend image
-        run: |
-          docker build -t frontend:latest -f frontend/Dockerfile frontend
+      # Se no futuro você tiver um frontend com Dockerfile próprio, descomente e ajuste abaixo:
+      # - name: Build frontend image
+      #   run: |
+      #     docker build -t frontend:latest -f frontend/Dockerfile frontend
 
       # Se quiser salvar como artefato para deploy, descomente abaixo:
       # - name: Save backend image as artifact
