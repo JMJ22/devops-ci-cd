@@ -19,27 +19,49 @@ jobs:
           username: ${{ secrets.HOMOLOG_VM_USER }}
           key: ${{ secrets.HOMOLOG_VM_KEY }}
           script: |
-            # Garante que o diretório existe, se não existir, cria
+            set -e
+            set -o pipefail
+
+            retry() {
+              local n=1
+              local max=5
+              local delay=10
+              while true; do
+                "$@" && break || {
+                  if [[ $n -lt $max ]]; then
+                    ((n++))
+                    echo "Comando falhou. Tentando novamente em $delay segundos... (tentativa $n de $max)" >&2
+                    sleep $delay;
+                  else
+                    echo "O comando falhou após $n tentativas." >&2
+                    return 1
+                  fi
+                }
+              done
+            }
+
             if [ ! -d "/docker/devops-ci-cd" ]; then
               mkdir -p /docker/devops-ci-cd
             fi
 
             cd /docker/devops-ci-cd
-            # Inicializa o repositório git se ele não existir (apenas na primeira vez)
+
+            # Inicializa o repositório git se não existir, senão atualiza
             if [ ! -d ".git" ]; then
-              git init
-              git remote add origin https://github.com/JMJ22/devops-ci-cd.git
-              git fetch origin
-              git checkout -t origin/main
+              retry git init
+              retry git remote add origin https://github.com/JMJ22/devops-ci-cd.git
+              retry git fetch origin
+              retry git checkout -t origin/main
             else
-              git pull origin main
+              retry git fetch origin
+              retry git reset --hard origin/main
             fi
+
+            retry docker build -t backend:latest -f Dockerfile .
 
             docker stop backend || true
             docker rm backend || true
-            # docker stop frontend || true
-            # docker rm frontend || true
-            docker build -t backend:latest -f Dockerfile .
-            # docker build -t frontend:latest -f frontend/Dockerfile frontend
+
             docker run -d --name backend -p 5000:5000 backend:latest
-            # docker run -d --name frontend -p 8080:8080 frontend:latest
+
+            echo "Deploy finalizado com sucesso!"
