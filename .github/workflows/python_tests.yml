@@ -23,7 +23,12 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          pip install html5validator
 
-      - name: Run tests
+      - name: Run Python tests
         run: |
           PYTHONPATH=. pytest
+
+      - name: Validate HTML
+        run: |
+          html5validator --root . --files index.html --ignore-re="Section lacks heading"

@@ -15,19 +15,24 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Build and deploy
+      - name: Build and deploy backend
         run: |
-          # Vai para o diretório já existente
           cd /docker/devops-ci-cd
-          
-          # Atualiza com os novos arquivos (usando o checkout atual)
           cp -r $GITHUB_WORKSPACE/* .
           cp -r $GITHUB_WORKSPACE/.* . 2>/dev/null || true
-          
-          # Build e deploy
-          docker build -t backend:latest .
+
+          docker build -t backend:latest -f Dockerfile.backend .
           docker stop backend 2>/dev/null || true
           docker rm backend 2>/dev/null || true
           docker run -d --name backend -p 5000:5000 backend:latest
-          
-          echo "Deploy completed!"
+
+      - name: Build and deploy frontend
+        run: |
+          cd /docker/devops-ci-cd
+          docker build -t frontend:latest -f Dockerfile.frontend .
+          docker stop frontend 2>/dev/null || true
+          docker rm frontend 2>/dev/null || true
+          docker run -d --name frontend -p 8080:80 frontend:latest
+
+      - name: Done
+        run: echo "Deploy completed!"
