@@ -1,0 +1,110 @@
+name: New Release Pipeline
+
+on:
+  push:
+    branches: [develop, main]
+  workflow_dispatch:  # Para trigger manual se quiser
+
+jobs:
+  # --- FASE 1: Testes (comum a todos) ---
+  smoke-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Run Smoke Tests
+        run: |
+          echo "Executando testes de fumaça..."
+          # Seus comandos aqui
+
+  unit-tests:
+    needs: smoke-tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Run Unit Tests
+        run: |
+          echo "Executando testes unitários..."
+          # Seus comandos aqui
+
+  # --- FASE 2: Build (após testes) ---
+  build:
+    needs: unit-tests
+    runs-on: ubuntu-latest
+    outputs:
+      artifact-name: ${{ steps.set-output.outputs.artifact-name }}
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Build Application
+        run: |
+          echo "Building application..."
+          # Seu build aqui
+      
+      - name: Set artifact name
+        id: set-output
+        run: |
+          echo "artifact-name=build-${{ github.sha }}" >> $GITHUB_OUTPUT
+      
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-${{ github.sha }}
+          path: ./dist/  # Ajuste para seu caminho
+
+  # --- FASE 3: DEPLOYS PARALELOS ---
+  deploy-dev:
+    needs: build
+    if: github.ref == 'refs/heads/develop'  # Só roda na branch develop
+    runs-on: ubuntu-latest
+    environment: dev
+    steps:
+      - name: Download Artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: ${{ needs.build.outputs.artifact-name }}
+      
+      - name: Deploy to Development
+        run: |
+          echo "🚀 Deploying to DEV (branch develop)..."
+          # Comandos específicos para DEV
+        env:
+          TARGET_ENV: "development"
+          DEPLOY_KEY: ${{ secrets.DEV_DEPLOY_KEY }}
+
+  deploy-qaa:
+    needs: build
+    if: github.ref == 'refs/heads/main'  # Só roda na branch main
+    runs-on: ubuntu-latest
+    environment: qaa
+    steps:
+      - name: Download Artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: ${{ needs.build.outputs.artifact-name }}
+      
+      - name: Deploy to QAA
+        run: |
+          echo "🧪 Deploying to QAA (branch main)..."
+          # Comandos específicos para QAA
+        env:
+          TARGET_ENV: "qaa"
+          DEPLOY_KEY: ${{ secrets.QAA_DEPLOY_KEY }}
+
+  deploy-prd:
+    needs: build
+    if: github.ref == 'refs/heads/main'  # Só roda na branch main
+    runs-on: ubuntu-latest
+    environment: prd
+    steps:
+      - name: Download Artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: ${{ needs.build.outputs.artifact-name }}
+      
+      - name: Deploy to Production
+        run: |
+          echo "🎯 Deploying to PRD (branch main)..."
+          # Comandos específicos para PRD
+        env:
+          TARGET_ENV: "production"
+          DEPLOY_KEY: ${{ secrets.PRD_DEPLOY_KEY }}
