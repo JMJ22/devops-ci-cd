@@ -1,0 +1,89 @@
+name: Production Pipeline
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+jobs:
+  # Mesmos testes (podem ser reaproveitados ou refeitos)
+  smoke-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Smoke Tests
+        run: |
+          echo "🧪 Executando testes de fumaça..."
+
+  unit-tests:
+    needs: smoke-tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Unit Tests
+        run: |
+          echo "⚡ Executando testes unitários..."
+
+  build:
+    needs: unit-tests
+    runs-on: ubuntu-latest
+    outputs:
+      artifact-name: ${{ steps.set-artifact.outputs.name }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Build Application
+        run: |
+          echo "🔨 Building application..."
+          mkdir -p dist
+          echo "build-${{ github.sha }}" > dist/version.txt
+      
+      - name: Set artifact name
+        id: set-artifact
+        run: |
+          echo "name=build-${{ github.sha }}" >> $GITHUB_OUTPUT
+      
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ github.sha }}
+          path: ./dist/
+
+  # DEPLOYS PARALELOS para QAA e PRD
+  deploy-qaa:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: qaa
+    if: github.event.pull_request.merged == true
+    
+    steps:
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-${{ github.sha }}
+      
+      - name: Deploy to QAA
+        run: |
+          echo "🧪 Deploying to QAA environment..."
+          echo "Build: build-${{ github.sha }}"
+        env:
+          TARGET_ENV: "qaa"
+
+  deploy-prd:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: prd
+    if: github.event.pull_request.merged == true
+    
+    steps:
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-${{ github.sha }}
+      
+      - name: Deploy to Production
+        run: |
+          echo "🎯 Deploying to PRODUCTION environment..."
+          echo "Build: build-${{ github.sha }}"
+        env:
+          TARGET_ENV: "production"
