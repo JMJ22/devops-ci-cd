@@ -1,35 +1,63 @@
+# .github/workflows/dev-pipeline.yml
 name: Development Pipeline
 
 on:
   pull_request:
     branches: [develop]
-    types: [opened, synchronize, reopened]
+    types: [closed]  # Só roda quando PR é fechado (merged ou não)
 
 jobs:
-  smoke-tests:
+  check-merged:
+    if: github.event.pull_request.merged == true  # Só se foi MERGE, não se foi fechado sem merge
     runs-on: ubuntu-latest
+    outputs:
+      is-merged: ${{ github.event.pull_request.merged }}
+    
+    steps:
+      - name: Check if PR was merged
+        run: |
+          echo "PR foi mergeado: ${{ github.event.pull_request.merged }}"
+
+  # SÓ RODA SE O PR FOI MERGEADO
+  smoke-tests:
+    needs: check-merged
+    if: needs.check-merged.outputs.is-merged == 'true'
+    runs-on: ubuntu-latest
+    
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}  # Checkout do código mergeado
+      
       - name: Run Smoke Tests
         run: |
           echo "🧪 Executando testes de fumaça..."
+          # Seus comandos reais aqui
 
   unit-tests:
     needs: smoke-tests
     runs-on: ubuntu-latest
+    
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+      
       - name: Run Unit Tests
         run: |
           echo "⚡ Executando testes unitários..."
+          # Seus comandos reais aqui
 
   build:
     needs: unit-tests
     runs-on: ubuntu-latest
     outputs:
       artifact-name: ${{ steps.set-artifact.outputs.name }}
+    
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
       
       - name: Build Application
         run: |
@@ -52,7 +80,6 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     environment: dev
-    if: github.event.pull_request.merged == true  # Só roda após merge
     
     steps:
       - name: Download Artifacts
@@ -64,5 +91,33 @@ jobs:
         run: |
           echo "🚀 Deploying to DEV environment..."
           echo "Build: build-${{ github.sha }}"
+          # Comandos reais de deploy para DEV
         env:
           TARGET_ENV: "development"
+
+  # JOB PARA CRIAR PR AUTOMÁTICO PARA MAIN
+  create-pr-to-main:
+    needs: deploy-dev
+    if: success()  # Só cria PR se todo o pipeline passou
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Create Pull Request to Main
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: main
+          base: develop
+          title: "Promote to Production: ${{ github.event.pull_request.title }}"
+          body: |
+            Automatic promotion from develop to main.
+            
+            Original PR: #${{ github.event.pull_request.number }}
+            Commit: ${{ github.event.pull_request.merge_commit_sha }}
+            
+            This PR was automatically created after successful deployment to DEV.
+          labels: automated-pr,production
+          reviewers: # Opcional: adicione revisores
+          team-reviewers: # Opcional: adicione teams
+          draft: false
+          delete-branch: false
