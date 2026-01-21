@@ -10,7 +10,7 @@ jobs:
   smoke-tests:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4  # Atualizado para v4
       - name: Run Smoke Tests
         run: |
           echo "Executando testes de fumaça..."
@@ -20,7 +20,7 @@ jobs:
     needs: smoke-tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4  # Atualizado para v4
       - name: Run Unit Tests
         run: |
           echo "Executando testes unitários..."
@@ -33,12 +33,14 @@ jobs:
     outputs:
       artifact-name: ${{ steps.set-output.outputs.artifact-name }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4  # Atualizado para v4
       
       - name: Build Application
         run: |
           echo "Building application..."
           # Seu build aqui
+          mkdir -p dist  # Criar diretório se não existir
+          echo "build-${{ github.sha }}" > dist/version.txt
       
       - name: Set artifact name
         id: set-output
@@ -46,10 +48,10 @@ jobs:
           echo "artifact-name=build-${{ github.sha }}" >> $GITHUB_OUTPUT
       
       - name: Upload Build Artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4  # CORRIGIDO: v4 em vez de v3
         with:
           name: build-${{ github.sha }}
-          path: ./dist/  # Ajuste para seu caminho
+          path: ./dist/
 
   # --- FASE 3: DEPLOYS PARALELOS ---
   deploy-dev:
@@ -59,17 +61,18 @@ jobs:
     environment: dev
     steps:
       - name: Download Artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4  # CORRIGIDO: v4 em vez de v3
         with:
           name: ${{ needs.build.outputs.artifact-name }}
       
       - name: Deploy to Development
         run: |
           echo "🚀 Deploying to DEV (branch develop)..."
+          echo "Artefato baixado:"
+          ls -la
           # Comandos específicos para DEV
         env:
           TARGET_ENV: "development"
-          DEPLOY_KEY: ${{ secrets.DEV_DEPLOY_KEY }}
 
   deploy-qaa:
     needs: build
@@ -78,17 +81,18 @@ jobs:
     environment: qaa
     steps:
       - name: Download Artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4  # CORRIGIDO: v4 em vez de v3
         with:
           name: ${{ needs.build.outputs.artifact-name }}
       
       - name: Deploy to QAA
         run: |
           echo "🧪 Deploying to QAA (branch main)..."
+          echo "Artefato baixado:"
+          ls -la
           # Comandos específicos para QAA
         env:
           TARGET_ENV: "qaa"
-          DEPLOY_KEY: ${{ secrets.QAA_DEPLOY_KEY }}
 
   deploy-prd:
     needs: build
@@ -97,14 +101,15 @@ jobs:
     environment: prd
     steps:
       - name: Download Artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4  # CORRIGIDO: v4 em vez de v3
         with:
           name: ${{ needs.build.outputs.artifact-name }}
       
       - name: Deploy to Production
         run: |
           echo "🎯 Deploying to PRD (branch main)..."
+          echo "Artefato baixado:"
+          ls -la
           # Comandos específicos para PRD
         env:
           TARGET_ENV: "production"
-          DEPLOY_KEY: ${{ secrets.PRD_DEPLOY_KEY }}
