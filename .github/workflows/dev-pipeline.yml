@@ -1,0 +1,47 @@
+# .github/workflows/dev-pipeline.yml
+name: Development Pipeline
+
+on:
+  pull_request:
+    branches: [develop]
+
+jobs:
+  smoke-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Run Smoke Tests
+        run: |
+          echo "🧪 Executando testes de fumaça..."
+
+  unit-tests:
+    needs: smoke-tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Run Unit Tests
+        run: |
+          echo "⚡ Executando testes unitários..."
+
+  build:
+    needs: unit-tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Build Application
+        run: |
+          echo "🔨 Building application..."
+          mkdir -p dist
+          echo "build-${{ github.sha }}" > dist/version.txt
+
+  deploy-dev:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: dev
+    steps:
+      - name: Deploy to Development
+        run: |
+          echo "🚀 Deploying to DEV environment..."
