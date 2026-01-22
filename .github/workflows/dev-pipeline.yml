@@ -2,7 +2,7 @@
 name: Development Pipeline
 
 on:
-  pull_request:
+  push:
     branches: [develop]
 
 jobs:
