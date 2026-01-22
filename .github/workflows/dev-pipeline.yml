@@ -1,0 +1,75 @@
+name: Development Pipeline
+
+on:
+  push:
+    branches: [develop]
+
+jobs:
+  ci:
+    name: CI - Lint & Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lint
+        run: |
+          echo "🧹 Running lint checks..."
+
+      - name: Unit Tests
+        run: |
+          echo "⚡ Running unit tests..."
+
+  build:
+    name: Build Artifact
+    needs: ci
+    runs-on: ubuntu-latest
+    outputs:
+      artifact-name: app-build-${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: |
+          echo "🔨 Building application..."
+          mkdir -p dist
+          echo "commit=${{ github.sha }}" > dist/version.txt
+
+      - name: Publish Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-build-${{ github.sha }}
+          path: dist/
+
+  deploy-dev:
+    name: Deploy DEV
+    needs: build
+    runs-on: ubuntu-latest
+    environment: dev
+    steps:
+      - name: Download Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: app-build-${{ github.sha }}
+
+      - name: Deploy
+        run: |
+          echo "🚀 Deploying artifact to DEV..."
+          cat version.txt
+
+  smoke-dev:
+    name: Smoke Tests DEV
+    needs: deploy-dev
+    runs-on: ubuntu-latest
+    steps:
+      - name: Smoke Tests
+        run: |
+          echo "🧪 Running smoke tests on DEV..."
+
+  dev-ready:
+    name: DEV Ready for Promotion
+    needs: smoke-dev
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mark artifact as eligible
+        run: |
+          echo "✅ Artifact ${{ github.sha }} is eligible for promotion"

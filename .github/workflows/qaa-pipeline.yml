@@ -1,0 +1,64 @@
+name: QAA Promotion Pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      artifact_name:
+        description: "Artifact gerado no DEV (ex: app-build-<commit-sha>)"
+        required: true
+
+      change_type:
+        description: "Tipo de mudança"
+        required: true
+        type: choice
+        options:
+          - feature
+          - bugfix
+          - hotfix
+
+      risk_level:
+        description: "Nível de risco percebido"
+        required: true
+        type: choice
+        options:
+          - low
+          - medium
+          - high
+
+      reason:
+        description: "Motivo da promoção para QAA"
+        required: true
+
+jobs:
+  promote-qaa:
+    name: Deploy QAA
+    runs-on: ubuntu-latest
+    environment:
+      name: qaa
+    steps:
+      - name: Download Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.artifact_name }}
+
+      - name: Show Promotion Context
+        run: |
+          echo "🔍 Promotion Context"
+          echo "Artifact   : ${{ inputs.artifact_name }}"
+          echo "Change type: ${{ inputs.change_type }}"
+          echo "Risk level : ${{ inputs.risk_level }}"
+          echo "Reason     : ${{ inputs.reason }}"
+
+      - name: Deploy to QAA
+        run: |
+          echo "🚀 Deploying artifact to QAA..."
+          cat version.txt
+
+      - name: Smoke Tests QAA
+        run: |
+          echo "🧪 Running smoke tests on QAA..."
+
+      - name: Promotion Result
+        run: |
+          echo "✅ Artifact successfully deployed to QAA"
+
